@@ -1,0 +1,164 @@
+import win.ui;
+import win.inputBox;
+/*DSG{{*/
+mainForm = win.form(text="RFCDownloader V0.1";right=599;bottom=343)
+mainForm.add(
+button_down={cls="button";text="下载";left=416;top=16;right=544;bottom=40;dr=1;dt=1;z=4};
+button_seldir={cls="button";text="选择目录";left=416;top=88;right=544;bottom=112;dr=1;dt=1;z=1};
+edit_e={cls="edit";left=152;top=16;right=200;bottom=40;align="right";dl=1;dt=1;edge=1;font=LOGFONT(weight=700);num=1;z=6};
+edit_log={cls="edit";text='RFC文档批量下载工具 V0.1\r\n\r\n1. 支持单个下载和批量下载.\r\n2. 默认下载源是官方源，如果无法下载，请自行按照说明配置下载源：\r\n   下载源必须是类似：xxx.yy/rfcxxx.txt 的下载源地址\r\n   下载源配置仅填写最后一个斜杠前网址，最后一个斜杠不能去掉，参考默认下载源格式填写。\r\n3. 下载单个文档时，仅需填写第一个文档序号即可，如需批量下载，填写开始和结束的文档序号。\r\n\r\n';left=8;top=120;right=592;bottom=336;autohscroll=false;db=1;dl=1;dr=1;dt=1;edge=1;multiline=1;readonly=1;vscroll=1;z=9};
+edit_path={cls="edit";text=".\";left=72;top=88;right=376;bottom=112;dl=1;dr=1;dt=1;edge=1;multiline=1;z=2};
+edit_s={cls="edit";text="1";left=72;top=16;right=120;bottom=40;align="right";dl=1;dt=1;edge=1;font=LOGFONT(weight=700);num=1;z=5};
+edit_src={cls="edit";text="https://www.rfc-editor.org/rfc/";left=72;top=48;right=376;bottom=72;dl=1;dr=1;dt=1;edge=1;z=12};
+edit_tn={cls="edit";text="5";left=328;top=16;right=376;bottom=40;align="right";dr=1;dt=1;edge=1;num=1;z=10};
+static={cls="static";text="保存路径";left=16;top=91;right=72;bottom=112;dl=1;dt=1;transparent=1;z=3};
+static2={cls="static";text="RFC";left=32;top=19;right=56;bottom=40;dl=1;dt=1;transparent=1;z=7};
+static3={cls="static";text="----";left=115;top=19;right=160;bottom=32;align="center";dl=1;dt=1;transparent=1;z=8};
+static4={cls="static";text="下载线程数";left=264;top=19;right=328;bottom=40;dr=1;dt=1;transparent=1;z=11};
+static5={cls="static";text="下载源";left=24;top=51;right=64;bottom=72;dl=1;dt=1;notify=1;transparent=1;z=13}
+)
+/*}}*/
+
+import fsys.dlg.dir;
+mainForm.button_seldir.oncommand = function(id,event){
+	var path = fsys.dlg.dir(,mainForm,'请选择目录')
+	if(path){
+		mainForm.edit_path.text = path;
+	}	
+}
+
+import fsys.file;
+import win.dlg.message; 
+
+mainForm.savefile = function(path,data){
+	var fw = fsys.file(path, "w");	
+	fw.write(data);
+	fw.close();
+}
+
+mainForm.setstatus = function(flag){
+	if(flag){
+		//stop download
+		mainForm.button_down.text = "下载";
+		mainForm.edit_path.disabled = false;
+		mainForm.edit_s.disabled = false;
+		mainForm.edit_e.disabled = false;
+		mainForm.edit_src.disabled = false;
+		mainForm.edit_tn.disabled = false;
+		thread.set("d_flag", false);
+		mainForm.edit_log.appendText("下载停止" + '\r\n')
+	}
+	else {
+		//start download
+		mainForm.button_down.text = "停止";
+		mainForm.edit_path.disabled = true;
+		mainForm.edit_s.disabled = true;
+		mainForm.edit_e.disabled = true;
+		mainForm.edit_src.disabled = true;
+		mainForm.edit_tn.disabled = true;
+		thread.set("d_flag", true);
+	}
+	
+}
+
+mainForm.realdown = function(s,e,mainForm){
+	import inet.http;			
+	var http = inet.http();
+	for(i=s;e;1){
+		mainForm.edit_log.appendText("下载 RFC" + i + '\r\n');
+		
+		var rfcurl = mainForm.downurlprefix;
+		var durl = rfcurl + "rfc" + i + ".txt";
+		mainForm.edit_log.appendText("download: " + durl + '\r\n');
+		var data, emsg, ecode  = http.get(durl);
+		if(data == null || data == false){
+			mainForm.edit_log.appendText("下载 RFC" + i +' 失败' +" errcode: " + ecode +'\r\n');
+		}
+		else {
+			var spath = mainForm.edit_path.text + "/rfc" + i + ".txt";
+			mainForm.savefile(spath, data);					
+			mainForm.edit_log.appendText("下载 RFC" + i + ' 完成\r\n');	
+		}		
+	}
+	
+	mainForm.edit_log.appendText("下载 RFC" + s + " ~ RFC" + e + ' 完成\r\n');
+	http.close();
+}
+
+function batchdownload(s,e,mainForm){
+	if(s != null){
+		//single download
+		if(s == e || e == 0 || e == null){
+			mainForm.edit_log.appendText("下载 RFC" + s + '\r\n');
+			import inet.http;			
+			var http = inet.http();
+			var rfcurl = mainForm.downurlprefix;
+			var durl = rfcurl + "rfc" + s + ".txt";
+			mainForm.edit_log.appendText("download: " + durl + '\r\n');
+			var data, emsg, ecode = http.get(durl);
+			if(data == null || data == false){
+				mainForm.edit_log.appendText("下载 RFC" + s +' 失败' +" errcode: " + ecode +'\r\n');
+			}
+			else {
+				var spath = mainForm.edit_path.text + "/rfc" + s + ".txt";
+				mainForm.savefile(spath, data);
+				mainForm.edit_log.appendText("下载 RFC" + s + ' 完成\r\n');	
+			}			
+						
+			http.close();					
+		}
+		//batch download
+		else {
+			mainForm.edit_log.appendText("批量下载 RFC" + s + " ~ RFC" + e + '\r\n');
+			var threadnum = mainForm.edit_tn.text;
+			var so = s;
+			var eo = e;
+			var step = ((e-s)-(e-s)%threadnum)/threadnum;
+			
+			var tids = {};
+			for(i=1;threadnum;1){
+				var s1 = so;
+				var e1 = s1 + step;
+				if(tonumber(e-s) < tonumber(threadnum)){
+					e1 = eo
+				}				
+				
+				if(tonumber(so) > tonumber(eo)){
+					break;
+				}
+				if(tonumber(e1) > tonumber(eo)){
+					e1 = eo
+				}
+				so=e1+1;
+								
+				mainForm.edit_log.appendText("线程"+ i +"下载 RFC" + s1 + " ~ RFC" + e1 + '\r\n');
+				//start real download
+				tids[i] = thread.create(mainForm.realdown,s1,e1,mainForm);
+			}
+			thread.waitAll(tids);
+			mainForm.edit_log.appendText("RFC" + s + "~RFC" + e + " 全部下载完毕！" + '\r\n');
+			mainForm.msgInfo("RFC" + s + "~RFC" + e + " 全部下载完毕！", 1000);
+		}
+		
+	}
+	mainForm.setstatus(true);
+}
+
+mainForm.button_down.oncommand = function(id,event){
+	mainForm.downurlprefix = mainForm.edit_src.text;
+	
+	if(mainForm.button_down.text == "停止"){
+		mainForm.setstatus(true);
+	}
+	else {
+		mainForm.setstatus(false);
+		
+		var s = mainForm.edit_s.text;
+		var e = mainForm.edit_e.text;
+		thread.invoke(batchdownload,s,e,mainForm);
+		mainForm.edit_log.appendText("开始下载 RFC" + s + " ~ RFC" + e + '\r\n');
+	}	
+}
+
+mainForm.show();	
+return win.loopMessage();

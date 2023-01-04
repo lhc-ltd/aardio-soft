@@ -1,0 +1,74 @@
+import win.ui;
+/*DSG{{*/
+mainForm = win.form(text="条形码批量生成工具 V0.1";right=757;bottom=467;max=false)
+mainForm.add(
+button={cls="button";text="生成";left=640;top=16;right=728;bottom=48;dr=1;dt=1;z=1};
+button3={cls="button";text="选择目录";left=488;top=48;right=552;bottom=72;dr=1;dt=1;z=11};
+edit_e={cls="edit";left=448;top=16;right=552;bottom=40;align="right";dr=1;dt=1;edge=1;num=1;z=4};
+edit_log={cls="edit";text='使用说明\r\n1、单个生成，只需要填写固定前缀的输入框，变化后面的两个框请留空；\r\n2、批量生成，填写固定前缀内容，变化部分两个框分别填写开始和结束数字；\r\n3、可以选择保存位置，默认在当前目录的batchresult目录下保存。\r\n';left=0;top=80;right=760;bottom=472;db=1;dl=1;dr=1;dt=1;edge=1;multiline=1;vscroll=1;z=5};
+edit_p={cls="edit";left=72;top=16;right=248;bottom=40;align="right";dl=1;dt=1;edge=1;multiline=1;z=2};
+edit_path={cls="edit";text=".\batchresult";left=72;top=48;right=480;bottom=72;dl=1;dr=1;dt=1;edge=1;z=6};
+edit_s={cls="edit";left=288;top=16;right=392;bottom=40;align="right";dl=1;dr=1;dt=1;edge=1;multiline=1;num=1;z=3};
+static={cls="static";text="-----";left=408;top=16;right=448;bottom=40;dr=1;dt=1;transparent=1;z=7};
+static2={cls="static";text="固定前缀";left=16;top=16;right=64;bottom=40;dl=1;dt=1;transparent=1;z=8};
+static3={cls="static";text="保存位置";left=16;top=48;right=64;bottom=72;dl=1;dt=1;transparent=1;z=9};
+static4={cls="static";text="变化";left=256;top=16;right=280;bottom=40;dl=1;dt=1;transparent=1;z=10}
+)
+/*}}*/
+
+import libzint;
+
+mainForm.button.oncommand = function(id,event){
+	var ret = fsys.path.isDir(mainForm.edit_path.text);
+	if(!ret){
+		fsys.createDir(mainForm.edit_path.text,false);
+	}
+	var s = mainForm.edit_s.text;
+	var e = mainForm.edit_e.text;
+	var p = mainForm.edit_p.text;
+	if(tostring(p)==""){
+		return;
+	}
+	if(tostring(s)=="" || tostring(e) == ""){
+		mainForm.edit_log.appendText('单个生成\r\n');
+		var op = libzint();
+		//op.height = 50;
+		//op.width = 200
+		op.encode(tostring(p));
+		op.saveFile(mainForm.edit_path.text+"\"+mainForm.edit_p.text+".bmp");
+		mainForm.edit_log.appendText('生成：'+p+'\r\n');
+		return;
+	}
+	mainForm.edit_log.appendText('批量生成\r\n');
+	for(i=s;e;1){
+		var sl = #tostring(i);
+		var se = #e;
+		
+		var opt = libzint();
+		var bc = tostring(p);
+		if(sl < se){
+			for(i=1;se-sl;1){
+				bc += "0";			
+			}			
+		}
+		bc += tostring(i);
+		opt.encode(tostring(bc));		
+		opt.saveFile(mainForm.edit_path.text+"\"+bc+".bmp");
+		mainForm.edit_log.appendText('生成：'+bc+'\r\n');
+	}	
+}
+
+import fsys.dlg.dir;
+mainForm.button3.oncommand = function(id,event){
+	var path = fsys.dlg.dir(,mainForm,'请选择目录')
+	if(path){
+		mainForm.edit_path.text = path;
+		var ret = fsys.path.isDir(mainForm.edit_path.text);
+		if(!ret){
+			fsys.createDir(mainForm.edit_path.text,false);
+		}
+	}
+}
+
+mainForm.show();
+return win.loopMessage();
