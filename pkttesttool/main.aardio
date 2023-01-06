@@ -1,0 +1,467 @@
+/*
+This is a network packet test tool.
+*/
+import win.ui;
+import win.dlg.message;
+import win.ui.menu;
+/*DSG{{*/
+mainForm = win.form(text="packet test tool";right=716;bottom=591;acceptfiles=1;border="dialog frame")
+mainForm.add(
+button_start={cls="button";text="start";left=24;top=520;right=94;bottom=552;db=1;dl=1;z=4};
+button_stop={cls="button";text="stop";left=112;top=520;right=182;bottom=552;db=1;dl=1;z=5};
+checkbox={cls="checkbox";text="提示信息";left=232;top=560;right=304;bottom=576;db=1;dl=1;z=27};
+edit_count={cls="edit";text="5";left=72;top=128;right=144;bottom=151;dl=1;dt=1;edge=1;num=1;z=15};
+edit_interval={cls="edit";text="100";left=248;top=128;right=304;bottom=151;dl=1;dt=1;edge=1;num=1;z=17};
+edit_log={cls="edit";left=372;top=31;right=706;bottom=578;ah=1;autohscroll=false;aw=1;db=1;dl=1;dr=1;dt=1;edge=1;multiline=1;vscroll=1;z=2};
+edit_pkt={cls="edit";text="pkt test test string";left=16;top=224;right=344;bottom=496;db=1;dl=1;dt=1;edge=1;multiline=1;vscroll=1;z=22};
+edit_port={cls="edit";text="3833";left=248;top=97;right=304;bottom=120;dl=1;dt=1;edge=1;num=1;z=6};
+edit_sendcount={cls="edit";text="0";left=232;top=524;right=304;bottom=552;color=255;db=1;dl=1;edge=1;font=LOGFONT(h=-16);num=1;z=20};
+groupbox={cls="groupbox";left=72;top=6;right=336;bottom=38;dl=1;dt=1;edge=1;z=9};
+groupbox2={cls="groupbox";left=72;top=43;right=336;bottom=75;dl=1;dt=1;edge=1;z=12};
+ipAddress={cls="ipaddress";text="127.0.0.1";left=72;top=98;right=184;bottom=119;dl=1;dt=1;edge=1;transparent=1;z=1};
+radiobutton_client={cls="radiobutton";text="Client";left=230;top=17;right=316;bottom=31;dl=1;dt=1;z=11};
+radiobutton_server={cls="radiobutton";text="Server";left=98;top=17;right=180;bottom=31;dl=1;dt=1;z=10};
+radiobutton_tcp={cls="radiobutton";text="TCP";left=97;top=56;right=179;bottom=70;dl=1;dt=1;z=14};
+radiobutton_udp={cls="radiobutton";text="UDP";left=230;top=55;right=312;bottom=69;dl=1;dt=1;z=13};
+static={cls="static";text="日志：";left=376;top=8;right=448;bottom=23;dl=1;dr=1;dt=1;transparent=1;z=3};
+static10={cls="static";text="协议";left=16;top=56;right=56;bottom=74;dl=1;dt=1;transparent=1;z=25};
+static2={cls="static";text="IP 地址";left=16;top=98;right=65;bottom=116;dl=1;dt=1;transparent=1;z=7};
+static3={cls="static";text="端口";left=208;top=98;right=238;bottom=116;dl=1;dt=1;transparent=1;z=8};
+static4={cls="static";text="发包次数";left=16;top=130;right=72;bottom=154;dl=1;dt=1;notify=1;transparent=1;z=16};
+static5={cls="static";text="发包间隔";left=184;top=130;right=232;bottom=154;dl=1;dt=1;notify=1;transparent=1;z=18};
+static6={cls="static";text="毫秒";left=312;top=130;right=368;bottom=154;dl=1;dr=1;dt=1;notify=1;transparent=1;z=19};
+static7={cls="static";text="计数";left=200;top=528;right=256;bottom=552;db=1;dl=1;notify=1;transparent=1;z=21};
+static8={cls="static";text="发送内容：";left=16;top=200;right=104;bottom=224;dl=1;dt=1;notify=1;transparent=1;z=23};
+static9={cls="static";text="角色";left=16;top=16;right=64;bottom=34;dl=1;dt=1;transparent=1;z=24};
+static_unit={cls="static";left=320;top=528;right=376;bottom=552;db=1;dl=1;dr=1;notify=1;transparent=1;z=26}
+)
+/*}}*/
+
+//RUNAS//
+
+var APP_NAME = "pkt test tool";
+var APP_VERSION = "v0.0.1";
+var log = "pkt test tool";
+
+mainForm.tipstime = 50;
+mainForm.tips_on = false;
+mainForm.log_content = false;
+
+mainForm.rcount = 0;
+
+var test_start_time = 0;
+var test_end_time = 0;
+
+if(_ARGV.opt){
+	mainForm.edit_log.print(_ARGV.opt,_ARGV[#_ARGV]);
+}
+
+import wsock.udp.client; 
+import wsock.tcp.server;
+import wsock.tcp.client;
+
+mainForm.ctlbuttons = function(opt){
+	mainForm.radiobutton_udp.disabled = opt;
+	mainForm.radiobutton_tcp.disabled = opt;
+	mainForm.radiobutton_client.disabled = opt;
+	mainForm.radiobutton_server.disabled = opt;
+	mainForm.edit_interval.disabled = opt;
+	mainForm.edit_port.disabled = opt;
+	mainForm.edit_count.disabled = opt;
+	mainForm.ipAddress.disabled = opt;
+	mainForm.button_start.disabled = opt;
+}
+
+mainForm.button_stop.oncommand = function(id,event){
+
+	var ret = mainForm.msgAsk("确实停止吗？");
+	if(ret){
+		thread.set("recvflag", 0);
+		thread.set("sendflag", 0);
+		sleep(100);
+				
+		if(mainForm.tcpsrvhdl){
+			wsock.tcp.server.closeById(mainForm.tcpsrvhdl.id);			
+			mainForm.edit_log.appendText('\r\n' + "TCP服务器停止");
+			mainForm.tcpsrvhdl = null;
+		}
+		if(mainForm.tips_on){
+			mainForm.msgInfo("测试停止", mainForm.tipstime);
+		}
+		mainForm.ctlbuttons(false);			
+	}
+}
+
+function tcpcliproc(mainForm)
+{
+	if(mainForm.tips_on){
+			mainForm.msgInfo("start tcp client", mainForm.tipstime);
+		}
+		
+	import console;
+	import wsock.tcp.client; 
+	
+	var scount = mainForm.edit_count.text;
+	var interval = mainForm.edit_interval.text;
+	var infi = 0;
+	var sendcount = 0;
+	var sendlen = 0;
+	var peerip = mainForm.ipAddress.text;
+	var peerport = tonumber(mainForm.edit_port.text);
+	
+	if(scount == 0){
+		infi = 1;
+	}
+		
+	if(peerport < 1 || peerport > 65535){
+		mainForm.msgErr("端口错误（1~65535）："+peerport);
+
+		mainForm.ctlbuttons(false);
+		return;
+	}
+	
+	var socket = wsock.tcp.client()
+ 	
+	var cret,errstr = socket.connect(peerip,peerport)
+	if(cret != true){
+		mainForm.msgErr("连接服务器失败 " + errstr);
+
+		mainForm.ctlbuttons(false)
+		return;
+	}
+	
+	var buffer = raw.buffer(mainForm.edit_pkt.text);
+	
+	mainForm.static_unit.text = "个报文";
+	
+	test_start_time = time();
+	mainForm.edit_log.appendText('\r\n' + "本次测试开始时间：" + tostring(test_start_time));
+	
+	while(true && thread.get("sendflag")){
+		var sret,errstr = socket.writeBuffer(buffer,#buffer);		
+		if(!sret){
+			mainForm.msgErr("发送失败 " + errstr);
+			break;
+		}
+
+		sendcount++;
+		sendlen += #mainForm.edit_pkt.text;
+		mainForm.edit_sendcount.text = sendcount;
+		
+		sleep(interval);
+		if(infi == 1){			
+			continue;
+		}
+		else {
+			scount--;
+			if(scount<=0){
+				break;
+			}
+		}
+		
+	}
+
+	socket.close();		
+	mainForm.edit_log.appendText('\r\n' + "本次发送报文："+sendcount+"个，总字节数：" + sendlen);
+
+	test_end_time = time();
+	mainForm.edit_log.appendText('\r\n' + "本次测试停止时间：" + tostring(test_end_time));
+	if(mainForm.tips_on){
+		mainForm.msgInfo("stop udp client", mainForm.tipstime);
+	}
+	mainForm.ctlbuttons(false)
+}
+
+function tcpsrvproc(mainForm)
+{
+	if(mainForm.tips_on){
+		mainForm.msgInfo("start tcp server", mainForm.tipstime);
+	}
+	
+	import console;
+	import wsock.tcp.server;
+
+	var scount = mainForm.edit_count.text;
+	var interval = mainForm.edit_interval.text;
+	var infi = 0;
+	var sendcount = 0;
+	var sendlen = 0;
+	var peerip = mainForm.ipAddress.text;
+	var peerport = tonumber(mainForm.edit_port.text);
+	
+	if(scount == 0){
+		infi = 1;
+	}
+		
+	if(peerport < 1 || peerport > 65535){
+		mainForm.msgErr("输入端口错误（1~65535）："+peerport);
+
+		mainForm.ctlbuttons(false)
+		return;
+	}
+	
+	var tcpServer,errstr = wsock.tcp.server(peerip,peerport);
+	if(tcpServer == null){
+		mainForm.msgErr("创建服务器失败 " + '\r\n' +errstr);
+
+		mainForm.ctlbuttons(false)
+		return;
+	}
+	
+	mainForm.tcpsrvhdl = tcpServer;	
+	mainForm.edit_log.appendText('\r\n' + "TCP服务器启动成功");
+	mainForm.rcount = 0;
+	mainForm.static_unit.text = "字节";
+	
+	tcpServer.forever(
+		function(acceptSocket){	
+			var buffer = raw.buffer(2048);
+			var client = wsock.tcp.client(,acceptSocket);	
+			
+			for(readSize,remainSize in client.eachReadBuffer(buffer) ){
+				if(mainForm.tcpsrvhdl == null){
+					break;
+				}
+				mainForm.rcount += readSize;
+				mainForm.edit_sendcount.text = mainForm.rcount;						
+			}				
+		}
+	)
+	
+	client.close();
+	tcpServer.close();	
+
+	mainForm.edit_log.appendText('\r\n' + "TCP服务器停止");
+	if(mainForm.tips_on){
+		mainForm.msgInfo("stop tcp server", mainForm.tipstime);
+	}
+	mainForm.ctlbuttons(false)
+}
+
+function udpcliproc(mainForm)
+{
+	if(mainForm.tips_on){
+		mainForm.msgInfo("start udp client", mainForm.tipstime);
+	}
+	
+	import console;
+	import wsock.udp.client;
+	
+	var scount = mainForm.edit_count.text;
+	var interval = mainForm.edit_interval.text;
+	var infi = 0;
+	var sendcount = 0;
+	var sendlen = 0;
+	var peerip = mainForm.ipAddress.text;
+	var peerport = tonumber(mainForm.edit_port.text);
+	
+	if(scount == 0){
+		infi = 1;
+	}
+		
+	if(peerport < 1 || peerport > 65535){
+		mainForm.msgErr("端口错误（1~65535）："+peerport);
+
+		mainForm.ctlbuttons(false)
+		return;
+	}
+	
+	var udpClient = wsock.udp.client();
+	mainForm.static_unit.text = "个报文";
+		
+	test_start_time = time();
+	mainForm.edit_log.appendText('\r\n' + "本次测试开始时间：" + tostring(test_start_time));	
+	
+	while(true && thread.get("sendflag")){
+		var sret,errstr = udpClient.sendto(mainForm.edit_pkt.text,peerip,peerport);		
+		if(!sret){
+			mainForm.msgErr("发送失败 " + errstr);
+			break;
+		}
+
+		sendcount++;
+		sendlen += #mainForm.edit_pkt.text;
+		mainForm.edit_sendcount.text = sendcount;
+		
+		sleep(interval);
+		if(infi == 1){			
+			continue;
+		}
+		else {
+			scount--;
+			if(scount<=0){
+				break;
+			}
+		}
+		
+	}
+
+	udpClient.close();	
+	mainForm.edit_log.appendText('\r\n' + "本次发送报文："+sendcount+"个，总字节数：" + sendlen);
+	test_end_time = time();
+	mainForm.edit_log.appendText('\r\n' + "本次测试停止时间：" + tostring(test_end_time));
+	
+	if(mainForm.tips_on){
+		mainForm.msgInfo("stop udp client", mainForm.tipstime);
+	}
+	
+	mainForm.ctlbuttons(false)
+}
+
+function udpsrvproc(mainForm)
+{
+	if(mainForm.tips_on){
+		mainForm.msgInfo("start udp server", mainForm.tipstime);
+	}
+	
+	import wsock.udp.client; 
+	udpServer = wsock.udp.client(); 
+	if( !udpServer.bind( "0.0.0.0", mainForm.edit_port.text ) ){
+		var err = ::GetLastError();
+		mainForm.msgErr("绑定端口错误: " + err);
+		udpServer.close();
+		if(mainForm.tips_on){
+			mainForm.msgInfo("未监听成功", mainForm.tipstime);
+		}
+		
+		mainForm.ctlbuttons(false)
+		return false;
+	}
+	
+	udpServer.setTimeouts(1000,3000);
+	
+	mainForm.edit_log.appendText('\r\n' + "UDP服务器启动成功");
+	mainForm.static_unit.text = "字节";
+	mainForm.rcount = 0;
+	
+	while(thread.get("recvflag")){					
+		var str = udpServer.recvfrom(65536);		
+		if(str == null){
+			continue;
+		}
+		mainForm.rcount += #str;
+		mainForm.edit_sendcount.text = mainForm.rcount;	
+		/*		
+		mainForm.edit_log.appendText('\r\n' + "recv: " + str);
+		var ii,pp = udpServer.getRemoteIp();		
+		mainForm.edit_log.appendText('\r\n' + "peer ip: " + ii + " port: ");
+		mainForm.edit_log.appendText(pp);
+		*/
+	
+	}
+	udpServer.close();	
+	mainForm.edit_log.appendText('\r\n' + "UDP服务器停止");
+	if(mainForm.tips_on){
+		mainForm.msgInfo("stop udp server", mainForm.tipstime);
+	}
+	mainForm.ctlbuttons(false)
+}		
+mainForm.button_start.oncommand = function(id,event){	
+	var proto,role;
+
+	if(mainForm.radiobutton_server.checked){
+		role = "server";
+	}
+	elseif(mainForm.radiobutton_client.checked){
+		role = "client";
+	}
+	else {
+		mainForm.msgErr("需要指定角色");
+		return;
+	}	
+	
+	if(mainForm.radiobutton_tcp.checked){
+		proto = "tcp";
+	}
+	elseif(mainForm.radiobutton_udp.checked){
+		proto = "udp";
+	}
+	else {
+		mainForm.msgErr("需要指定协议");
+		return;
+	}
+	
+	//real start thread
+	thread.set("recvflag", 1);
+	thread.set("sendflag", 1);
+	
+	mainForm.edit_sendcount.text = "0";
+		 
+	select(proto) {
+		case "tcp" {
+			select(role) {
+				case "server" {
+					thread.invoke(tcpsrvproc,mainForm)
+				}
+				case "client" {
+					thread.invoke(tcpcliproc,mainForm)
+				}
+				else {
+					mainForm.msgErr("error role: " + role);
+				}
+			}
+		}
+		case "udp" {
+			select(role) {
+				case "server" {
+					thread.invoke(udpsrvproc,mainForm)
+				}
+				case "client" {
+					thread.invoke(udpcliproc,mainForm)
+				}
+				else {
+					mainForm.msgErr("error role: " + role);
+				}
+			}
+		}
+		else {
+			mainForm.msgErr("error protol: " + proto);
+		}
+	}
+	
+	mainForm.ctlbuttons(true);	
+}
+
+/*
+mainForm.wndproc = function(hwnd,message,wParam,lParam){
+	select( message ) { 		
+		case _WM_RBUTTONUP{
+			var x,y = win.getMessagePos(lParam);
+			mainForm.msgbox("mouse pos x: " + x + " y: " + y);
+		}
+		case _WM_LBUTTONUP{
+			var x,y = win.getMessagePos(lParam);
+			mainForm.msgbox("mouse pos x: " + x + " y: " + y);
+		}
+		case _WM_DROPFILES	{			
+			var f = win.getDropFile(wParam);
+			mainForm.edit_log.appendText("drop in files: " + '\r\n' );
+			for(k,v in f){	
+				mainForm.edit_log.appendText(v + '\r\n' );	
+			}
+		}
+		else{			
+		}
+	}
+	//无返回值则继续调用默认回调函数
+}
+*/
+
+mainForm.radiobutton_tcp.checked = true;
+mainForm.radiobutton_server.checked = true;
+mainForm.ipAddress.text = "0.0.0.0";
+mainForm.checkbox.checked = false;
+
+mainForm.edit_log.text = '\t[ ' + APP_NAME + "    " +  APP_VERSION + ' ]\r\n';
+mainForm.text = APP_NAME + " " +  APP_VERSION;
+
+mainForm.checkbox.oncommand = function(id,event){
+	mainForm.tips_on = mainForm.checkbox.checked;
+}
+
+mainForm.radiobutton_client.oncommand = function(id,event){
+	mainForm.ipAddress.text = "127.0.0.1";
+}
+
+mainForm.show();
+return win.loopMessage();
