@@ -1,0 +1,211 @@
+import win.ui;
+/*DSG{{*/
+mainForm = win.form(text="syslog server v0.0.1";right=839;bottom=467)
+mainForm.add(
+button={cls="button";text="启动";left=8;top=8;right=96;bottom=32;dl=1;dt=1;z=1};
+button_clear={cls="button";text="清空";left=696;top=8;right=760;bottom=32;dr=1;dt=1;z=12};
+checkbox={cls="checkbox";text="自动滚动";left=616;top=8;right=688;bottom=32;checked=1;dr=1;dt=1;z=13};
+edit_filenum={cls="edit";text="100";left=520;top=8;right=560;bottom=32;align="right";dl=1;dt=1;edge=1;multiline=1;num=1;z=10};
+edit_linecount={cls="edit";text="10000";left=400;top=8;right=464;bottom=32;align="right";dl=1;dt=1;edge=1;multiline=1;num=1;z=8};
+export={cls="button";text="导出日志";left=768;top=8;right=832;bottom=32;disabled=1;dr=1;dt=1;z=7};
+linemax={cls="edit";text="2048";left=296;top=8;right=336;bottom=32;align="right";dl=1;dt=1;edge=1;multiline=1;num=1;z=5};
+log={cls="listbox";left=8;top=40;right=833;bottom=464;db=1;dl=1;dr=1;dt=1;edge=1;hscroll=1;items={};msel=1;vscroll=1;z=4};
+port={cls="edit";text="514";left=168;top=8;right=208;bottom=32;align="right";dl=1;dt=1;edge=1;multiline=1;num=1;z=2};
+static={cls="static";text="UDP端口";left=112;top=8;right=160;bottom=32;center=1;dl=1;dt=1;transparent=1;z=3};
+static2={cls="static";text="单行最大长度";left=216;top=8;right=296;bottom=32;center=1;dl=1;dt=1;transparent=1;z=6};
+static3={cls="static";text="转储条数";left=344;top=8;right=400;bottom=32;center=1;dl=1;dr=1;dt=1;transparent=1;z=9};
+static4={cls="static";text="文件数";left=472;top=8;right=520;bottom=32;center=1;dl=1;dt=1;transparent=1;z=11}
+)
+/*}}*/
+
+mainForm.show();
+win.setTopmost(mainForm.hwnd);
+
+mainForm.runflag = 0;
+
+import win.timer
+var timer = win.timer( mainForm );
+timer.setInterval(1000);
+
+import fsys.dlg;
+
+log2file_flag = 0;
+log2file_count = 10000;
+max_log_file_num = 100;
+fresh_flag = 1;
+
+mainForm.set_input_stat = function(opt)
+{
+	mainForm.edit_linecount.disabled = opt;
+	mainForm.edit_filenum.disabled = opt;
+	mainForm.port.disabled = opt;
+	mainForm.linemax.disabled = opt;
+	if (opt == false)
+		timer.disable();
+}
+
+timer.onTimer = function(hwnd,msg,id,tick){
+	if (log2file_flag == 0
+		&& fresh_flag == 1)
+	{
+		mainForm.log.setSelected(0, false);
+		mainForm.log.setSelected(mainForm.log.count);
+	}
+} 
+
+//global inter log for export
+g_log_buf = "";
+g_log_file_index = 0;
+
+mainForm.mylog = function(str){
+	mainForm.log.add(str);
+	if (mainForm.log.count > log2file_count
+		&& log2file_count > 0)
+	{
+		log2file_flag = 1;
+		mainForm.log.clear();		
+		
+		filename = ".\log_" + tostring(g_log_file_index) + ".txt";
+		file = io.open(filename,"w+");
+
+		//移动文件指针到尾部
+		file.seek("end");
+		var tmplog = g_log_buf;
+		file.write(tmplog);
+		file.flush();
+		file.close();
+		
+		g_log_buf = "";
+		
+		if (max_log_file_num > 1)
+		{
+			g_log_file_index++;
+			if (g_log_file_index > (max_log_file_num-1) )
+				g_log_file_index = 0;
+		}
+		
+		log2file_flag = 0;
+	}
+	g_log_buf += str;
+	g_log_buf += '\r\n';
+}
+
+function logsrv(mainForm)
+{
+	import wsock.udp.client;
+	
+	var count = 1;	
+	var udpServer = wsock.udp.client(); 
+	udpServer.setTimeouts(1000,1000);
+
+	if (tonumber(mainForm.port.text) > 65535 || tonumber(mainForm.port.text) < 1)
+	{		
+		mainForm.button.text = "运行";
+		mainForm.runflag = 0;		
+		mainForm.mylog(">>启动失败");
+		thread.set("runf", 0);
+		mainForm.set_input_stat(false);
+		mainForm.msgbox("端口号错误，需要在1~655535之间");
+		return false;
+	}
+
+	if (!udpServer.bind( "0.0.0.0", tonumber(mainForm.port.text)))
+	{
+		udpServer.close();		
+		mainForm.button.text = "运行";
+		mainForm.runflag = 0;
+		mainForm.mylog(">>打开端口失败");
+		thread.set("runf", 0);
+		mainForm.set_input_stat(false);		
+		return false;
+	}
+	
+	mainForm.mylog(">>启动成功");	
+	
+	while(true && thread.get("runf"))
+	{
+		var sip, sport;
+		var str = udpServer.recvfrom(1024);
+
+		if (str != null)
+		{
+			//mainForm.msgbox(..wsock.inet_ntoa(udpServer.lastAddr.sin_addr.S_un.S_addr) + ":" + udpServer.lastAddr.sin_port);						
+			if (!string.isUtf8(str))		
+			{
+				mainForm.mylog(count + ". from: " + ..wsock.inet_ntoa(udpServer.lastAddr.sin_addr.S_un.S_addr) + ":" + udpServer.lastAddr.sin_port +" | msg: " + string.fromto(str,0,65001));
+			}
+			else 
+			{				
+				mainForm.mylog(count + ". from: " + ..wsock.inet_ntoa(udpServer.lastAddr.sin_addr.S_un.S_addr) + ":" + udpServer.lastAddr.sin_port +" | msg: " + str);
+			}
+
+			count++;
+		}
+	}
+	udpServer.close();
+	mainForm.mylog(">>停止服务 " + tostring(time.gmt(time.now())));
+	mainForm.mylog(">>本次共收到 "+ (count-1) + " 条日志");
+	mainForm.log.setSelected(0, false);
+	mainForm.log.setSelected(mainForm.log.count);
+	mainForm.set_input_stat(false);
+}
+
+mainForm.button.oncommand = function(id,event)
+{
+	if (mainForm.runflag == 0)
+	{
+		mainForm.button.text = "停止";
+		mainForm.runflag = 1;
+		g_log_buf = "";
+		mainForm.mylog(">>启动服务 " + tostring(time.gmt(time.now())));
+		thread.set("runf", 1);
+		thread.invoke(logsrv,mainForm);
+		timer.enable();
+		log2file_count = tonumber(mainForm.edit_linecount.text);
+		max_log_file_num = tonumber(mainForm.edit_filenum.text);
+		mainForm.set_input_stat(true);
+	}
+	elseif(mainForm.runflag == 1)
+	{
+		mainForm.button.text = "运行";
+		mainForm.runflag = 0;
+		thread.set("runf", 0);
+		timer.disable();
+		mainForm.set_input_stat(false);
+	}
+	
+	var linemax = mainForm.linemax.text;
+	::SendMessageInt(mainForm.log.hwnd,0x194/*_LB_SETHORIZONTALEXTENT*/, tonumber(linemax),0)
+}
+
+mainForm.export.oncommand = function(id,event){	
+	var path = fsys.dlg.save('所有文件|*.*|文本文件|*.txt||',,,winform);
+	if(path){		
+		file = io.open(path,"a+");
+		file.seek("end");
+		var tmplog = g_log_buf;
+		file.write(tmplog);
+		file.flush();
+		file.close();
+	}
+}
+
+mainForm.button_clear.oncommand = function(id,event){
+	mainForm.log.clear();
+}
+
+mainForm.checkbox.oncommand = function(id,event){
+	if (mainForm.checkbox.checked)
+	{
+		fresh_flag = 1;
+	}
+	else 
+	{
+		fresh_flag = 0;
+	}	
+}
+
+//autorun server wehn startup
+mainForm.button.oncommand(3,0);
+
+return win.loopMessage();
