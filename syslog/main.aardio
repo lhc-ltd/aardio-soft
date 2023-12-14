@@ -59,7 +59,9 @@ g_log_file_index = 0;
 
 mainForm.mylog = function(str){
 	mainForm.log.add(str);
-	if (mainForm.log.count > log2file_count
+	g_log_buf += str;
+	g_log_buf += '\r\n';
+	if (mainForm.log.count >= log2file_count
 		&& log2file_count > 0)
 	{
 		log2file_flag = 1;
@@ -77,17 +79,15 @@ mainForm.mylog = function(str){
 		
 		g_log_buf = "";
 		
-		if (max_log_file_num > 1)
+		if (max_log_file_num >= 1)
 		{
 			g_log_file_index++;
-			if (g_log_file_index > (max_log_file_num-1) )
+			if (g_log_file_index >= max_log_file_num )
 				g_log_file_index = 0;
 		}
 		
 		log2file_flag = 0;
-	}
-	g_log_buf += str;
-	g_log_buf += '\r\n';
+	}	
 }
 
 function logsrv(mainForm)
