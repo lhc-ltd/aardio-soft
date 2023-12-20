@@ -33,6 +33,7 @@ log2file_flag = 0;
 log2file_count = 10000;
 max_log_file_num = 100;
 fresh_flag = 1;
+close_flag = 0;
 
 mainForm.set_input_stat = function(opt)
 {
@@ -58,16 +59,23 @@ g_log_buf = "";
 g_log_file_index = 0;
 
 mainForm.mylog = function(str){
+	thread.lock("log_lock");
+	
 	mainForm.log.add(str);
 	g_log_buf += str + '\r\n';
 
-	if (mainForm.log.count >= log2file_count
+	if ((mainForm.log.count >= log2file_count || close_flag == 2)
 		&& log2file_count > 0)
 	{
 		log2file_flag = 1;
-		mainForm.log.clear();		
+		if (close_flag != 2)
+			mainForm.log.clear();		
 		
 		filename = ".\log_" + tostring(g_log_file_index) + ".txt";
+		if (close_flag == 2)
+		{
+			filename = ".\log_exit.txt";
+		}
 		file = io.open(filename,"w+");
 
 		//移动文件指针到尾部
@@ -84,7 +92,8 @@ mainForm.mylog = function(str){
 			g_log_file_index = 0;
 		
 		log2file_flag = 0;
-	}	
+	}
+	thread.lock("log_lock");	
 }
 
 function logsrv(mainForm)
@@ -202,6 +211,10 @@ mainForm.checkbox.oncommand = function(id,event){
 	}	
 }
 
+mainForm.onClose = function(hwnd,message,wParam,lParam){
+    close_flag = 2; 
+    mainForm.mylog(">>程序退出");
+}
 //autorun server wehn startup
 mainForm.button.oncommand(3,0);
 
