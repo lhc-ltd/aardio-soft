@@ -5,7 +5,7 @@ mainForm.add(
 button={cls="button";text="启动";left=8;top=8;right=96;bottom=32;dl=1;dt=1;z=1};
 button_clear={cls="button";text="清空";left=696;top=8;right=760;bottom=32;dr=1;dt=1;z=12};
 checkbox={cls="checkbox";text="自动滚动";left=616;top=8;right=688;bottom=32;checked=1;dr=1;dt=1;z=13};
-edit_filenum={cls="edit";text="100";left=520;top=8;right=560;bottom=32;align="right";dl=1;dt=1;edge=1;multiline=1;num=1;z=10};
+edit_filenum={cls="edit";text="0";left=520;top=8;right=560;bottom=32;align="right";dl=1;dt=1;edge=1;multiline=1;num=1;z=10};
 edit_linecount={cls="edit";text="10000";left=400;top=8;right=464;bottom=32;align="right";dl=1;dt=1;edge=1;multiline=1;num=1;z=8};
 export={cls="button";text="导出日志";left=768;top=8;right=832;bottom=32;disabled=1;dr=1;dt=1;z=7};
 linemax={cls="edit";text="2048";left=296;top=8;right=336;bottom=32;align="right";dl=1;dt=1;edge=1;multiline=1;num=1;z=5};
@@ -54,6 +54,9 @@ timer.onTimer = function(hwnd,msg,id,tick){
 	}
 } 
 
+log2file_count = tonumber(mainForm.edit_linecount.text);
+max_log_file_num = tonumber(mainForm.edit_filenum.text);
+		
 //global inter log for export
 g_log_buf = "";
 g_log_file_index = 0;
@@ -65,7 +68,7 @@ mainForm.mylog = function(str){
 	g_log_buf += str + '\r\n';
 
 	if ((mainForm.log.count >= log2file_count || close_flag == 2)
-		&& log2file_count > 0)
+		&& max_log_file_num > 0)
 	{
 		log2file_flag = 1;
 		if (close_flag != 2)
@@ -74,6 +77,11 @@ mainForm.mylog = function(str){
 		filename = ".\log_" + tostring(g_log_file_index) + ".txt";
 		if (close_flag == 2)
 		{
+			if (max_log_file_num <= 0)
+			{
+				thread.lock("log_lock");
+				return;
+			}
 			filename = ".\log_exit.txt";
 		}
 		file = io.open(filename,"w+");
@@ -215,7 +223,14 @@ mainForm.onClose = function(hwnd,message,wParam,lParam){
     close_flag = 2; 
     mainForm.mylog(">>程序退出");
 }
-//autorun server wehn startup
-mainForm.button.oncommand(3,0);
+
+//autorun server wehn "autorun" file exist
+var file = io.open(".\autorun","r")
+if (file)
+{
+	mainForm.edit_filenum.text = 100;
+	max_log_file_num = tonumber(mainForm.edit_filenum.text);
+	mainForm.button.oncommand(3,0);
+}
 
 return win.loopMessage();
