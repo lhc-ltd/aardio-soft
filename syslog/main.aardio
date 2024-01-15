@@ -81,8 +81,7 @@ mainForm.mylog = function(str){
 			{
 				thread.lock("log_lock");
 				return;
-			}
-			filename = ".\log_exit.txt";
+			}			
 		}
 		file = io.open(filename,"w+");
 
@@ -221,16 +220,96 @@ mainForm.checkbox.oncommand = function(id,event){
 
 mainForm.onClose = function(hwnd,message,wParam,lParam){
     close_flag = 2; 
-    mainForm.mylog(">>程序退出");
+    mainForm.mylog(">>程序退出" + tostring(time.gmt(time.now())));
 }
 
 //autorun server wehn "autorun" file exist
+/*
+file format:
+serv port
+line count max
+file num max
+*/
 var file = io.open(".\autorun","r")
 if (file)
-{
-	mainForm.edit_filenum.text = 100;
-	max_log_file_num = tonumber(mainForm.edit_filenum.text);
+{	
+	var ports = file.read("%s");
+	var lines = file.read("%s");
+	var files = file.read("%s");
+	
+	var port = tonumber(ports);
+	var files_num = tonumber(files);
+	var lines_num = tonumber(lines);
+
+	if (port != null)
+	{
+		mainForm.port.text = port;
+	}
+	if (files_num != null)
+	{
+		mainForm.edit_filenum.text = files_num;
+		max_log_file_num = tonumber(mainForm.edit_filenum.text);
+	}
+	if (lines_num != null)
+	{
+		mainForm.edit_linecount.text = lines_num;
+		log2file_count = tonumber(mainForm.edit_linecount.text);
+	}
 	mainForm.button.oncommand(3,0);
 }
 
+filenum_tips='提示：\r\n日志文件转储功能开关和文件数量配置。\r\n输入允许最大存储的日志文件个数，超出覆盖最旧的文件。\r\n设为 0 禁用日志文件存储。';
+linecount_tips='提示：\r\n日志文件转储条数阈值配置。\r\n按照配置的条数存储到一个文件。';
+linemax_tips='提示：\r\n窗口日志显示行最大长度配置。\r\n不易过小，否则显示不全，请根据日志长短合理配置。';
+port_tips='提示：\r\n服务端口配置。\r\n默认为514，当前只支持UDP。';
+
+mainForm.edit_filenum.onFocusGot = function(){ 
+	mainForm.edit_filenum.showInfoTip(filenum_tips);
+}
+
+mainForm.edit_linecount.onFocusGot = function(){ 
+	mainForm.edit_linecount.showInfoTip(linecount_tips);
+}
+
+mainForm.linemax.onFocusGot = function(){ 
+	mainForm.linemax.showInfoTip(linemax_tips);
+}
+
+mainForm.port.onFocusGot = function(){ 
+	mainForm.port.showInfoTip(port_tips);
+}
+
+mainForm.about = function(){
+	mainForm.msgbox('syslog server v0.1\r\nby lhc ltd. 2024')
+}
+
+mainForm.help = function(){
+	mainForm.msgbox("coming soon ... ...")
+}
+
+mainForm.wndproc = function(hwnd,message,wParam,lParam){
+	select( message ) { 
+		case 0x112/*_WM_SYSCOMMAND*/
+		{
+			select(wParam) {
+				case 999 {
+					mainForm.about();
+				}
+				case 998 {
+					mainForm.help();
+				}
+				else {
+				}
+			}
+		}
+		else{			
+		}
+	}
+	//无返回值则继续调用默认回调函数
+}
+
+var hMenu = ::User32.GetSystemMenu(mainForm.hwnd, false);
+::User32.InsertMenu(hMenu,5,0x00000400,998,"帮助");
+::User32.InsertMenu(hMenu,6,0x00000400,999,"关于");
+			
 return win.loopMessage();
