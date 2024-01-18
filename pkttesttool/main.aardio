@@ -3,7 +3,7 @@ This is a network packet test tool.
 */
 import win.ui;
 import win.dlg.message;
-import win.ui.menu;
+
 /*DSG{{*/
 mainForm = win.form(text="packet test tool";right=716;bottom=591;acceptfiles=1;border="dialog frame")
 mainForm.add(
