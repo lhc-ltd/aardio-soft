@@ -7,15 +7,15 @@ import win.ui.menu;
 /*DSG{{*/
 mainForm = win.form(text="packet test tool";right=716;bottom=591;acceptfiles=1;border="dialog frame")
 mainForm.add(
-button_start={cls="button";text="开始";left=24;top=520;right=94;bottom=552;db=1;dl=1;z=4};
-button_stop={cls="button";text="停止";left=112;top=520;right=182;bottom=552;db=1;dl=1;z=5};
-checkbox={cls="checkbox";text="提示信息";left=232;top=560;right=304;bottom=576;db=1;dl=1;z=27};
+button_start={cls="button";text="开始";left=72;top=512;right=142;bottom=544;db=1;dl=1;z=4};
+button_stop={cls="button";text="停止";left=176;top=512;right=246;bottom=544;db=1;dl=1;z=5};
+checkbox={cls="checkbox";text="提示信息";left=264;top=520;right=336;bottom=536;db=1;dl=1;z=27};
 edit_count={cls="edit";text="5";left=72;top=128;right=144;bottom=151;dl=1;dt=1;edge=1;num=1;z=15};
 edit_interval={cls="edit";text="100";left=248;top=128;right=304;bottom=151;dl=1;dt=1;edge=1;num=1;z=17};
 edit_log={cls="edit";left=372;top=31;right=706;bottom=578;ah=1;autohscroll=false;aw=1;db=1;dl=1;dr=1;dt=1;edge=1;multiline=1;vscroll=1;z=2};
-edit_pkt={cls="edit";text="pkt test test string";left=16;top=224;right=344;bottom=496;db=1;dl=1;dt=1;edge=1;multiline=1;vscroll=1;z=22};
+edit_pkt={cls="edit";text="pkt test test string";left=16;top=224;right=344;bottom=496;autohscroll=false;db=1;dl=1;dt=1;edge=1;multiline=1;vscroll=1;z=22};
 edit_port={cls="edit";text="3833";left=248;top=97;right=304;bottom=120;dl=1;dt=1;edge=1;num=1;z=6};
-edit_sendcount={cls="edit";text="0";left=232;top=524;right=304;bottom=552;color=255;db=1;dl=1;edge=1;font=LOGFONT(h=-16);num=1;z=20};
+edit_sendcount={cls="edit";text="0";left=48;top=552;right=296;bottom=580;align="right";color=255;db=1;dl=1;edge=1;font=LOGFONT(h=-16);num=1;z=20};
 groupbox={cls="groupbox";left=72;top=6;right=336;bottom=38;dl=1;dt=1;edge=1;z=9};
 groupbox2={cls="groupbox";left=72;top=43;right=336;bottom=75;dl=1;dt=1;edge=1;z=12};
 ipAddress={cls="ipaddress";text="127.0.0.1";left=72;top=98;right=184;bottom=119;dl=1;dt=1;edge=1;transparent=1;z=1};
@@ -30,14 +30,44 @@ static3={cls="static";text="端口";left=208;top=98;right=238;bottom=116;dl=1;dt
 static4={cls="static";text="发包次数";left=16;top=130;right=72;bottom=154;dl=1;dt=1;notify=1;transparent=1;z=16};
 static5={cls="static";text="发包间隔";left=184;top=130;right=232;bottom=154;dl=1;dt=1;notify=1;transparent=1;z=18};
 static6={cls="static";text="毫秒";left=312;top=130;right=368;bottom=154;dl=1;dr=1;dt=1;notify=1;transparent=1;z=19};
-static7={cls="static";text="计数";left=200;top=528;right=256;bottom=552;db=1;dl=1;notify=1;transparent=1;z=21};
+static7={cls="static";text="计数";left=16;top=552;right=72;bottom=576;center=1;db=1;dl=1;notify=1;transparent=1;z=21};
 static8={cls="static";text="发送内容：";left=16;top=200;right=104;bottom=224;dl=1;dt=1;notify=1;transparent=1;z=23};
 static9={cls="static";text="角色";left=16;top=16;right=64;bottom=34;dl=1;dt=1;transparent=1;z=24};
-static_unit={cls="static";left=320;top=528;right=376;bottom=552;db=1;dl=1;dr=1;notify=1;transparent=1;z=26}
+static_unit={cls="static";left=304;top=552;right=360;bottom=576;center=1;db=1;dl=1;dr=1;notify=1;transparent=1;z=26}
 )
 /*}}*/
 
 //RUNAS//
+
+import win.timer
+var timer = win.timer(mainForm);
+timer.onTimer = function(hwnd,msg,id,tick){
+	var show = mainForm.rcount;
+	if (show < 1024)
+	{
+		mainForm.edit_sendcount.text = show;
+	}	
+	if (show > 1024 && show < 1024*1024)
+	{
+		show /= 1024;
+		mainForm.edit_sendcount.text = math.round(show,2) + " KB";
+	}
+	if (show > 1024*1024)
+	{
+		show /= 1024*1024;
+		mainForm.edit_sendcount.text = math.round(show,2) + " MB";
+	}
+	if (show > 1024*1024*1024 && show < 1024*1024*1024*1024)
+	{
+		show /= 1024*1024;
+		mainForm.edit_sendcount.text = math.round(show,2) + " GB";
+	}
+	if (show > 1024*1024*1024*1024)
+	{
+		show /= 1024*1024;
+		mainForm.edit_sendcount.text = math.round(show,2) + " TB";
+	}	
+}
 
 var APP_NAME = "pkt test tool";
 var APP_VERSION = "v0.0.1";
@@ -70,6 +100,8 @@ mainForm.ctlbuttons = function(opt){
 	mainForm.edit_count.disabled = opt;
 	mainForm.ipAddress.disabled = opt;
 	mainForm.button_start.disabled = opt;
+	if (opt == false)
+		timer.disable();
 }
 
 mainForm.button_stop.oncommand = function(id,event){
@@ -124,7 +156,7 @@ function tcpcliproc(mainForm)
  	
 	var cret,errstr = socket.connect(peerip,peerport)
 	if(cret != true){
-		mainForm.msgErr("连接服务器失败 " + errstr);
+		mainForm.msgErr("连接服务器失败：" + errstr);
 
 		mainForm.ctlbuttons(false)
 		return;
@@ -195,7 +227,6 @@ function tcpsrvproc(mainForm)
 		
 	if(peerport < 1 || peerport > 65535){
 		mainForm.msgErr("输入端口错误（1~65535）："+peerport);
-
 		mainForm.ctlbuttons(false)
 		return;
 	}
@@ -203,11 +234,10 @@ function tcpsrvproc(mainForm)
 	var tcpServer,errstr = wsock.tcp.server(peerip,peerport);
 	if(tcpServer == null){
 		mainForm.msgErr("创建服务器失败 " + '\r\n' +errstr);
-
 		mainForm.ctlbuttons(false)
 		return;
 	}
-	
+
 	mainForm.tcpsrvhdl = tcpServer;	
 	mainForm.edit_log.appendText('\r\n' + "TCP服务器启动成功");
 	mainForm.rcount = 0;
@@ -216,14 +246,14 @@ function tcpsrvproc(mainForm)
 	tcpServer.forever(
 		function(acceptSocket){	
 			var buffer = raw.buffer(2048);
-			var client = wsock.tcp.client(,acceptSocket);	
+			var client = wsock.tcp.client(,acceptSocket);
 			
 			for(readSize,remainSize in client.eachReadBuffer(buffer) ){
 				if(mainForm.tcpsrvhdl == null){
 					break;
 				}
 				mainForm.rcount += readSize;
-				mainForm.edit_sendcount.text = mainForm.rcount;						
+				//mainForm.edit_sendcount.text = mainForm.rcount;
 			}				
 		}
 	)
@@ -329,18 +359,19 @@ function udpsrvproc(mainForm)
 	}
 	
 	udpServer.setTimeouts(1000,3000);
+	udpServer.setopt(0x1002/*_SO_RCVBUF*/,1024*1024*50);
 	
 	mainForm.edit_log.appendText('\r\n' + "UDP服务器启动成功");
 	mainForm.static_unit.text = "字节";
 	mainForm.rcount = 0;
 	
 	while(thread.get("recvflag")){					
-		var str = udpServer.recvfrom(65536);		
+		var str = udpServer.recvfrom(65536);
 		if(str == null){
 			continue;
 		}
 		mainForm.rcount += #str;
-		mainForm.edit_sendcount.text = mainForm.rcount;	
+		//mainForm.edit_sendcount.text = mainForm.rcount;	
 		/*		
 		mainForm.edit_log.appendText('\r\n' + "recv: " + str);
 		var ii,pp = udpServer.getRemoteIp();		
@@ -391,10 +422,11 @@ mainForm.button_start.oncommand = function(id,event){
 		case "tcp" {
 			select(role) {
 				case "server" {
-					thread.invoke(tcpsrvproc,mainForm)
+					thread.invoke(tcpsrvproc,mainForm);
+					timer.enable(500);
 				}
 				case "client" {
-					thread.invoke(tcpcliproc,mainForm)
+					thread.invoke(tcpcliproc,mainForm);
 				}
 				else {
 					mainForm.msgErr("error role: " + role);
@@ -404,10 +436,11 @@ mainForm.button_start.oncommand = function(id,event){
 		case "udp" {
 			select(role) {
 				case "server" {
-					thread.invoke(udpsrvproc,mainForm)
+					thread.invoke(udpsrvproc,mainForm);
+					timer.enable(500);
 				}
 				case "client" {
-					thread.invoke(udpcliproc,mainForm)
+					thread.invoke(udpcliproc,mainForm);
 				}
 				else {
 					mainForm.msgErr("error role: " + role);
@@ -464,4 +497,5 @@ mainForm.radiobutton_client.oncommand = function(id,event){
 }
 
 mainForm.show();
+
 return win.loopMessage();
