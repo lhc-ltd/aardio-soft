@@ -3,13 +3,13 @@ This is a network packet test tool.
 */
 import win.ui;
 import win.dlg.message;
-
 /*DSG{{*/
 mainForm = win.form(text="packet test tool";right=716;bottom=591;acceptfiles=1;border="dialog frame")
 mainForm.add(
 button_start={cls="button";text="开始";left=72;top=512;right=142;bottom=544;db=1;dl=1;z=4};
 button_stop={cls="button";text="停止";left=176;top=512;right=246;bottom=544;db=1;dl=1;z=5};
 checkbox={cls="checkbox";text="提示信息";left=264;top=520;right=336;bottom=536;db=1;dl=1;z=27};
+checkbox_rand={cls="checkbox";text="随机长度";left=272;top=200;right=344;bottom=216;z=28};
 edit_count={cls="edit";text="5";left=72;top=128;right=144;bottom=151;dl=1;dt=1;edge=1;num=1;z=15};
 edit_interval={cls="edit";text="100";left=248;top=128;right=304;bottom=151;dl=1;dt=1;edge=1;num=1;z=17};
 edit_log={cls="edit";left=372;top=31;right=706;bottom=578;ah=1;autohscroll=false;aw=1;db=1;dl=1;dr=1;dt=1;edge=1;multiline=1;vscroll=1;z=2};
@@ -33,7 +33,7 @@ static6={cls="static";text="毫秒";left=312;top=130;right=368;bottom=154;dl=1;d
 static7={cls="static";text="计数";left=16;top=552;right=72;bottom=576;center=1;db=1;dl=1;notify=1;transparent=1;z=21};
 static8={cls="static";text="发送内容：";left=16;top=200;right=104;bottom=224;dl=1;dt=1;notify=1;transparent=1;z=23};
 static9={cls="static";text="角色";left=16;top=16;right=64;bottom=34;dl=1;dt=1;transparent=1;z=24};
-static_unit={cls="static";left=304;top=552;right=360;bottom=576;center=1;db=1;dl=1;dr=1;notify=1;transparent=1;z=26}
+static_unit={cls="static";left=304;top=560;right=360;bottom=576;center=1;db=1;dl=1;dr=1;notify=1;transparent=1;z=26}
 )
 /*}}*/
 
@@ -41,32 +41,43 @@ static_unit={cls="static";left=304;top=552;right=360;bottom=576;center=1;db=1;dl
 
 import win.timer
 var timer = win.timer(mainForm);
+
 timer.onTimer = function(hwnd,msg,id,tick){
 	var show = mainForm.rcount;
-	if (show < 1024)
-	{
-		mainForm.edit_sendcount.text = show;
-	}	
-	if (show > 1024 && show < 1024*1024)
+	var unit = "";
+	var strtmp = show;
+	
+	if (show >= 1024 && show < 1024*1024)
 	{
 		show /= 1024;
-		mainForm.edit_sendcount.text = math.round(show,2) + " KB";
+		unit = " KB";
+		strtmp = math.round(show,2);
 	}
-	if (show > 1024*1024)
+	if (show >= 1024*1024)
 	{
 		show /= 1024*1024;
-		mainForm.edit_sendcount.text = math.round(show,2) + " MB";
+		unit = " MB";
+		strtmp = math.round(show,2);
 	}
-	if (show > 1024*1024*1024 && show < 1024*1024*1024*1024)
+	if (show >= 1024*1024*1024 && show < 1024*1024*1024*1024)
 	{
-		show /= 1024*1024;
-		mainForm.edit_sendcount.text = math.round(show,2) + " GB";
+		show /= 1024*1024*1024;
+		unit = " GB";
+		strtmp = math.round(show,2);
 	}
-	if (show > 1024*1024*1024*1024)
+	if (show >= 1024*1024*1024*1024)
 	{
-		show /= 1024*1024;
-		mainForm.edit_sendcount.text = math.round(show,2) + " TB";
-	}	
+		show /= 1024*1024*1024*1024;
+		unit = " TB";
+		strtmp = math.round(show,2);
+	}
+
+	var strtmp2 = string.right(strtmp, 2);
+	if (strtmp2[1] == '.'#)
+	{
+		strtmp = strtmp + "0";
+	}
+	mainForm.edit_sendcount.text = tostring(strtmp) + unit;
 }
 
 var APP_NAME = "pkt test tool";
@@ -161,23 +172,29 @@ function tcpcliproc(mainForm)
 		mainForm.ctlbuttons(false)
 		return;
 	}
-	
-	var buffer = raw.buffer(mainForm.edit_pkt.text);
+		
+	var buffer = raw.buffer(mainForm.edit_pkt.text);	
 	
 	mainForm.static_unit.text = "个报文";
 	
 	test_start_time = time();
 	mainForm.edit_log.appendText('\r\n' + "本次测试开始时间：" + tostring(test_start_time));
-	
+	math.randomize(time.tick())
 	while(true && thread.get("sendflag")){
-		var sret,errstr = socket.writeBuffer(buffer,#buffer);		
+		var len = 0;
+		if(mainForm.checkbox_rand.checked == true){			
+			len = math.random(1, 4096);
+			buffer = raw.buffer(len, 0);
+			mainForm.edit_log.appendText('\r\n' + "发送随机长度：" + #buffer);
+		}
+		var sret,errstr = socket.writeBuffer(buffer,#buffer);
 		if(!sret){
 			mainForm.msgErr("发送失败 " + errstr);
 			break;
 		}
 
 		sendcount++;
-		sendlen += #mainForm.edit_pkt.text;
+		sendlen += #buffer;
 		mainForm.edit_sendcount.text = sendcount;
 		
 		sleep(interval);
@@ -301,16 +318,24 @@ function udpcliproc(mainForm)
 		
 	test_start_time = time();
 	mainForm.edit_log.appendText('\r\n' + "本次测试开始时间：" + tostring(test_start_time));	
-	
+	math.randomize(time.tick())
+	var buffer = raw.buffer(mainForm.edit_pkt.text);
 	while(true && thread.get("sendflag")){
-		var sret,errstr = udpClient.sendto(mainForm.edit_pkt.text,peerip,peerport);		
+		var len = 0;
+		if(mainForm.checkbox_rand.checked == true){			
+			len = math.random(1, 4096);
+			buffer = raw.buffer(len, 0);
+			mainForm.edit_log.appendText('\r\n' + "发送随机长度：" + #buffer);
+		}
+		
+		var sret,errstr = udpClient.sendto(buffer,peerip,peerport);		
 		if(!sret){
 			mainForm.msgErr("发送失败 " + errstr);
 			break;
 		}
 
 		sendcount++;
-		sendlen += #mainForm.edit_pkt.text;
+		sendlen += #buffer;
 		mainForm.edit_sendcount.text = sendcount;
 		
 		sleep(interval);
@@ -455,31 +480,6 @@ mainForm.button_start.oncommand = function(id,event){
 	mainForm.ctlbuttons(true);	
 }
 
-/*
-mainForm.wndproc = function(hwnd,message,wParam,lParam){
-	select( message ) { 		
-		case _WM_RBUTTONUP{
-			var x,y = win.getMessagePos(lParam);
-			mainForm.msgbox("mouse pos x: " + x + " y: " + y);
-		}
-		case _WM_LBUTTONUP{
-			var x,y = win.getMessagePos(lParam);
-			mainForm.msgbox("mouse pos x: " + x + " y: " + y);
-		}
-		case _WM_DROPFILES	{			
-			var f = win.getDropFile(wParam);
-			mainForm.edit_log.appendText("drop in files: " + '\r\n' );
-			for(k,v in f){	
-				mainForm.edit_log.appendText(v + '\r\n' );	
-			}
-		}
-		else{			
-		}
-	}
-	//无返回值则继续调用默认回调函数
-}
-*/
-
 mainForm.radiobutton_tcp.checked = true;
 mainForm.radiobutton_server.checked = true;
 mainForm.ipAddress.text = "0.0.0.0";
@@ -493,7 +493,13 @@ mainForm.checkbox.oncommand = function(id,event){
 }
 
 mainForm.radiobutton_client.oncommand = function(id,event){
-	mainForm.ipAddress.text = "127.0.0.1";
+	if (mainForm.ipAddress.text == "0.0.0.0")
+		mainForm.ipAddress.text = "127.0.0.1";
+}
+
+mainForm.radiobutton_server.oncommand = function(id,event){
+	if (mainForm.ipAddress.text == "127.0.0.1")
+		mainForm.ipAddress.text = "0.0.0.0";
 }
 
 mainForm.show();
