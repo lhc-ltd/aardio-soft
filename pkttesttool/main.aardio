@@ -9,12 +9,14 @@ mainForm.add(
 button_start={cls="button";text="开始";left=72;top=512;right=142;bottom=544;db=1;dl=1;z=4};
 button_stop={cls="button";text="停止";left=176;top=512;right=246;bottom=544;db=1;dl=1;z=5};
 checkbox={cls="checkbox";text="提示信息";left=264;top=520;right=336;bottom=536;db=1;dl=1;z=27};
-checkbox_rand={cls="checkbox";text="随机长度";left=272;top=200;right=344;bottom=216;z=28};
+checkbox_rand={cls="checkbox";text="随机长度";left=152;top=200;right=224;bottom=220;z=28};
 edit_count={cls="edit";text="5";left=72;top=128;right=144;bottom=151;dl=1;dt=1;edge=1;num=1;z=15};
+edit_e={cls="edit";text="4096";left=304;top=200;right=344;bottom=220;edge=1;num=1;z=30};
 edit_interval={cls="edit";text="100";left=248;top=128;right=304;bottom=151;dl=1;dt=1;edge=1;num=1;z=17};
 edit_log={cls="edit";left=372;top=31;right=706;bottom=578;ah=1;autohscroll=false;aw=1;db=1;dl=1;dr=1;dt=1;edge=1;multiline=1;vscroll=1;z=2};
 edit_pkt={cls="edit";text="pkt test test string";left=16;top=224;right=344;bottom=496;autohscroll=false;db=1;dl=1;dt=1;edge=1;multiline=1;vscroll=1;z=22};
 edit_port={cls="edit";text="3833";left=248;top=97;right=304;bottom=120;dl=1;dt=1;edge=1;num=1;z=6};
+edit_s={cls="edit";text="1";left=232;top=200;right=272;bottom=220;edge=1;num=1;z=29};
 edit_sendcount={cls="edit";text="0";left=48;top=552;right=296;bottom=580;align="right";color=255;db=1;dl=1;edge=1;font=LOGFONT(h=-16);num=1;z=20};
 groupbox={cls="groupbox";left=72;top=6;right=336;bottom=38;dl=1;dt=1;edge=1;z=9};
 groupbox2={cls="groupbox";left=72;top=43;right=336;bottom=75;dl=1;dt=1;edge=1;z=12};
@@ -25,6 +27,7 @@ radiobutton_tcp={cls="radiobutton";text="TCP";left=97;top=56;right=179;bottom=70
 radiobutton_udp={cls="radiobutton";text="UDP";left=230;top=55;right=312;bottom=69;dl=1;dt=1;z=13};
 static={cls="static";text="日志：";left=376;top=8;right=448;bottom=23;dl=1;dr=1;dt=1;transparent=1;z=3};
 static10={cls="static";text="协议";left=16;top=56;right=56;bottom=74;dl=1;dt=1;transparent=1;z=25};
+static11={cls="static";text="~~~";left=280;top=200;right=296;bottom=216;transparent=1;z=31};
 static2={cls="static";text="IP 地址";left=16;top=98;right=65;bottom=116;dl=1;dt=1;transparent=1;z=7};
 static3={cls="static";text="端口";left=208;top=98;right=238;bottom=116;dl=1;dt=1;transparent=1;z=8};
 static4={cls="static";text="发包次数";left=16;top=130;right=72;bottom=154;dl=1;dt=1;notify=1;transparent=1;z=16};
@@ -182,8 +185,15 @@ function tcpcliproc(mainForm)
 	math.randomize(time.tick())
 	while(true && thread.get("sendflag")){
 		var len = 0;
-		if(mainForm.checkbox_rand.checked == true){			
-			len = math.random(1, 4096);
+		if(mainForm.checkbox_rand.checked == true){
+			var s = tonumber(mainForm.edit_s.text);		
+			var e = tonumber(mainForm.edit_e.text);
+			if (s >= e || s < 1 || e < 1)
+			{
+				mainForm.msgErr("随机数据长度错误！");
+				break;
+			}
+			len = math.random(s, e);
 			buffer = raw.buffer(len, 0);
 			mainForm.edit_log.appendText('\r\n' + "发送随机长度：" + #buffer);
 		}
@@ -322,8 +332,15 @@ function udpcliproc(mainForm)
 	var buffer = raw.buffer(mainForm.edit_pkt.text);
 	while(true && thread.get("sendflag")){
 		var len = 0;
-		if(mainForm.checkbox_rand.checked == true){			
-			len = math.random(1, 4096);
+		if(mainForm.checkbox_rand.checked == true){
+			var s = tonumber(mainForm.edit_s.text);		
+			var e = tonumber(mainForm.edit_e.text);
+			if (s >= e || (s < 1 || s > 65507) || (e < 1 || e > 65507))
+			{
+				mainForm.msgErr("随机数据长度错误！");
+				break;
+			}
+			len = math.random(s, e);	
 			buffer = raw.buffer(len, 0);
 			mainForm.edit_log.appendText('\r\n' + "发送随机长度：" + #buffer);
 		}
