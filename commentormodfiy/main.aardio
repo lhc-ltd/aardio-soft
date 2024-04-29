@@ -1,0 +1,129 @@
+import win.ui;
+/*DSG{{*/
+mainForm = win.form(text="Word文件批注作者名字修改 V0.1";right=663;bottom=255;acceptfiles=1;max=false)
+mainForm.add(
+button={cls="button";text="选择";left=552;top=32;right=640;bottom=64;dr=1;dt=1;font=LOGFONT(h=-14);z=3};
+button2={cls="button";text="选择";left=552;top=80;right=640;bottom=112;dr=1;dt=1;font=LOGFONT(h=-14);z=10};
+button3={cls="button";text="处理";left=256;top=200;right=392;bottom=232;db=1;dl=1;dr=1;font=LOGFONT(h=-14);z=11};
+checkbox={cls="checkbox";text="全部修改";left=448;top=200;right=536;bottom=232;db=1;dr=1;font=LOGFONT(h=-14);z=7};
+edit_newname={cls="edit";left=352;top=136;right=536;bottom=168;db=1;dr=1;edge=1;font=LOGFONT(h=-16);multiline=1;z=4};
+input={cls="edit";left=96;top=32;right=536;bottom=64;dl=1;dr=1;dt=1;edge=1;font=LOGFONT(h=-16);z=2};
+origname={cls="combobox";left=96;top=136;right=280;bottom=162;db=1;dl=1;edge=1;font=LOGFONT(h=-16);items={};mode="dropdown";z=12};
+output={cls="edit";left=96;top=80;right=536;bottom=112;dl=1;dr=1;dt=1;edge=1;font=LOGFONT(h=-16);z=9};
+static={cls="static";text="待修改文件";left=16;top=32;right=96;bottom=56;center=1;dl=1;dt=1;font=LOGFONT(h=-14);transparent=1;z=1};
+static2={cls="static";text="原批注作者";left=16;top=136;right=96;bottom=160;center=1;db=1;dl=1;font=LOGFONT(h=-14);notify=1;transparent=1;z=5};
+static20={cls="static";text="修改后文件";left=16;top=80;right=96;bottom=104;center=1;dl=1;dt=1;font=LOGFONT(h=-14);transparent=1;z=8};
+static3={cls="static";text="修改为->";left=288;top=136;right=368;bottom=160;center=1;db=1;dl=1;dr=1;font=LOGFONT(h=-14);notify=1;transparent=1;z=6}
+)
+/*}}*/
+
+import fsys.dlg;
+import zlib.unzip;
+import zlib.zip;
+import web.msxml;
+
+processfile = function(mainForm){
+	import zlib.unzip;
+	import web.msxml;
+	
+	var ok,err = zlib.unzip.extract(mainForm.input.text, "/tmp")
+	if (!ok)
+	{
+		mainForm.msgbox("解析文件失败！error -1");
+		return;
+	}
+	
+	var xmlDoc = web.msxml("/tmp/word/comments.xml");
+	
+	for(k,xnode in xmlDoc.eachNode( "w:comment") )
+	{
+		author = xnode.attributes(1).nodeValue;	
+		var index = mainForm.origname.find(author);
+		if (index == 0)
+			mainForm.origname.add(author);
+	}
+
+	mainForm.origname.selIndex = 1;
+}
+
+mainForm.button.oncommand = function(id,event){	
+	var path = fsys.dlg.open("Word docx文件|*.docx||","请选择Word文件（docx）",,mainForm,,)
+
+	if(path){
+		mainForm.input.text = path;
+		mainForm.origname.clear();
+	}
+	else {
+		return;
+	}
+	
+	//process
+	thread.invoke(processfile, mainForm);
+}
+
+mainForm.button3.oncommand = function(id,event){
+	output = mainForm.output.text;
+	if (output == "")
+	{
+		mainForm.msgbox("没有指定输出文件路径和名词，自动在当前目录生成！");
+		if(!fsys.isDir(mainForm.input.text)){
+			var path = fsys.getParentDir(mainForm.input.text);
+			var nlen = #mainForm.input.text - #path;
+			output = string.right(mainForm.input.text, nlen);
+			output = "/modify-" + output;
+		}
+	}
+
+	var xmlDoc = web.msxml("/tmp/word/comments.xml");
+	
+	var orign = mainForm.origname.selText;
+	var new = mainForm.edit_newname.text;
+	
+	var allmod = mainForm.checkbox.checked;
+	
+	for(k,xnode in xmlDoc.eachNode( "w:comment") )
+	{
+		author = xnode.attributes(1).nodeValue;	
+		
+		if (author == orign || allmod)
+			xnode.attributes(1).nodeValue = new;
+	}
+	
+	xmlDoc.save("/tmp/word/comments.xml");
+ 	
+	var zip = zlib.zip(output, "/tmp/"); 
+	
+	zip.compress("/")
+	
+	mainForm.msgbox("处理完毕，请查看修改后文件：" + '\n' + string.right(output,#output-1));
+}
+
+mainForm.button2.oncommand = function(id,event){
+	var path = fsys.dlg.save("Word docx文件|*.docx||",'请选择修改后保存位置和文件名')
+	if(path){
+		mainForm.output.text = path;
+	}
+}
+
+mainForm.onDropFiles = function(files){
+	var path = files[1]
+	var ext = string.right(path,5);
+	
+	if (ext != ".docx")
+	{
+		mainForm.msgbox("只支持文件名后缀为 .docx 格式的Word文件！");
+		return;
+	}
+	/*
+if(!fsys.isDir(path)){
+		path = fsys.getParentDir(path)
+	}
+*/
+	mainForm.input.text = path;
+	mainForm.origname.clear();
+	
+	thread.invoke(processfile, mainForm);
+}
+
+mainForm.show();
+return win.loopMessage();
